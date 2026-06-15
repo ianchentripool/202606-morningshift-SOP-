@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早班演算前 SOP 工作流程 - 新進人員快速上手指南</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandBg: '#404040',
+                        brandText: '#e0e0e0',
+                        brandYellow: '#f9d223',
+                        brandTeal: '#18bfa9',
+                        brandAlert: '#ff4d6a',
+                        brandAlertBg: '#521e26',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang TC', 'Microsoft JhengHei', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #18bfa9;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f9d223;
+        }
+
+        @media (min-width: 1024px) {
+            .presentation-container {
+                height: calc(100vh - 4.5rem);
+                overflow: hidden;
+            }
+            .presentation-card {
+                height: 100%;
+                overflow: hidden;
+            }
+        }
+
+        @media (max-height: 900px) {
+            .fluid-scale { font-size: 0.95rem; }
+            .fluid-title { font-size: 1.5rem !important; }
+            .fluid-gap { gap: 0.5rem !important; }
+            .fluid-space { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
+        }
+
+        @media (max-height: 780px) {
+            .fluid-scale { font-size: 0.85rem; }
+            .fluid-title { font-size: 1.25rem !important; }
+            .fluid-subtitle { font-size: 0.85rem !important; }
+            .fluid-gap { gap: 0.35rem !important; }
+            .fluid-space { margin-top: 0.25rem !important; margin-bottom: 0.25rem !important; }
+            .fluid-p { padding: 0.5rem !important; }
+        }
+
+        @media (max-height: 680px) {
+            .fluid-scale { font-size: 0.75rem; }
+            .fluid-title { font-size: 1.1rem !important; }
+            .fluid-subtitle { font-size: 0.75rem !important; }
+            .fluid-gap { gap: 0.25rem !important; }
+            .fluid-space { margin-top: 0.15rem !important; margin-bottom: 0.15rem !important; }
+            .fluid-p { padding: 0.4rem !important; }
+        }
+    </style>
+</head>
+<body class="bg-[#2a2a2a] text-brandText font-sans overflow-x-hidden antialiased select-none">
+
+    <div id="root" class="flex h-screen w-screen bg-[#2a2a2a] text-brandText overflow-hidden"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const CORRECT_HASH = "612c243ade895d498c788985159276d667611eeaecaca30437dec664330e5d64";
+
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        const slidesData = [
+            {
+                id: 'cover',
+                title: '早班演算前 SOP',
+                subtitle: '工作流程新進人員快速上手指南',
+                type: 'cover',
+                content: '本簡報涵蓋從貼回昨日晚班 APP 派車結果，到最終後台執行 Dispatch V3 的完整流程。每一步驟環環相扣，必須按照順序執行。'
+            },
+            {
+                id: 'divider-1',
+                title: '工作步驟',
+                type: 'divider',
+                subtitle: 'SOP Steps Overview'
+            },
+            {
+                id: 'overview',
+                title: '工作流程總覽',
+                subtitle: '工作步驟與主要工具',
+                type: 'overview',
+                steps: [
+                    { num: '01', action: '第一動', title: '貼回昨天晚班 APP 派車結果', desc: '匯出 tripool 派趟、匯入派車小幫手' },
+                    { num: '02', action: '第二動', title: '批次更新派車方式 & 檢查急單', desc: '後台批次、排除異常、確認今天單' },
+                    { num: '03', action: '第三動', title: 'Tripool 自動建單（寄信建單）', desc: '使用 booking 帳號、批次寄信建單' },
+                    { num: '04', action: '第四動', title: '確認司機報班', desc: '核對報班狀況、填寫協作文件' },
+                    { num: '05', action: '第五動', title: '派今日急單', desc: '尋找急單來源、透過 APP 派單' },
+                    { num: '06', action: '第六動', title: '派車前確認清單', desc: '清單確認、其他派車前作業' },
+                    { num: '07', action: '第七動', title: '執行 Dispatch V3 演算', desc: '最終排序、搬明天單、執行演算' }
+                ]
+            },
+            {
+                id: 'step1-1',
+                title: '01 第一動 — 貼回昨天晚班 APP 派車結果',
+                subtitle: '步驟 1：匯出昨晚 APP 先派',
+                type: 'step',
+                steps: [
+                    '前往 tripool 派趟系統：<a href="https://allocation.tripool.app/runs/finished" target="_blank" class="text-brandTeal underline hover:text-brandYellow font-semibold">https://allocation.tripool.app/runs/finished</a>',
+                    '在左側選單中，點選「派趟管理」下方的「已派出」',
+                    '隨機檢查幾筆資料，確認無誤',
+                    '全選所有資料，點選「確認並匯出」下載 CSV 檔案'
+                ],
+                alert: {
+                    title: '關鍵提醒',
+                    content: '務必落實「隨機檢查」步驟，提早發現昨晚可能遺留的異常車趟。這是品質控制的第一道防線。'
+                }
+            },
+            {
+                id: 'step1-2',
+                title: '01 第一動 — 貼回昨天晚班 APP 派車結果',
+                subtitle: '步驟 2：匯入派車小幫手貼回總表',
+                type: 'step',
+                steps: [
+                    '開啟派車小幫手，點選「檔案」→「匯入」→「上傳」',
+                    '選擇剛下載的 CSV 檔案，匯入位置選「新工作表」',
+                    '務必取消勾選「將文字轉換成數字、日期和公式」後按確定',
+                    '複製新工作表名稱，切換至「APP派車結果」分頁',
+                    '在 A1 格 cmd（Windows Ctrl） + Shift + V 純值貼上',
+                    '點選「收尾工作」→「貼回APP派車結果」執行功能',
+                    '隨機檢查總表 AF 欄，確認是否已變成 manual'
+                ],
+                alert: {
+                    title: '關鍵操作細節',
+                    content: '匯入時務必取消勾選「將文字轉換成數字、日期和公式」，否則會影響貼回。貼上文字時必須使用純值貼上，避免破壞工作表的公式與格式。'
+                }
+            },
+            {
+                id: 'step2',
+                title: '02 第二動 — 批次更新派車方式 & 檢查急單',
+                subtitle: '完成 APP 貼回後的必要操作',
+                type: 'two-column',
+                col1Title: '批次更新派車方式',
+                col1Steps: [
+                    '前往後台左側 tomorrow 頁面：<a href="https://admin.tripool.app/admin/orders/tomorrow" target="_blank" class="text-brandTeal underline hover:text-brandYellow font-semibold">https://admin.tripool.app/admin/orders/tomorrow</a>',
+                    '點選「批次更新派車方式品品」',
+                    '若上方出現紅色底提示，必須優先排除處理',
+                    '確認總表與後台皆已同步修改為 manual'
+                ],
+                col2Title: '檢查今日急單',
+                col2Steps: [
+                    '前往後台左側 Today 頁面：<a href="https://admin.tripool.app/admin/orders/today" target="_blank" class="text-brandTeal underline hover:text-brandYellow font-semibold">https://admin.tripool.app/admin/orders/today</a>',
+                    '檢查是否有需要立即派出的急單（淡橘底）',
+                    '記錄急單編號',
+                    '準備在第五動進行派單處理'
+                ],
+                alert: {
+                    title: '紅底異常排除優先',
+                    content: '批次更新後上方出現的紅色底提示代表系統檢測到異常訂單，必須在進行下一步驟前完全排除，否則會影響後續自動建單與演算。這是確保派車品質的關鍵步驟。'
+                }
+            },
+            {
+                id: 'step3',
+                title: '03 第三動 — Tripool 自動建單（寄信）',
+                subtitle: '使用 booking 帳號執行自動建單、批次寄信並移至總表',
+                type: 'two-column',
+                col1Title: '建單與寄信步驟',
+                col1Steps: [
+                    '開啟 Tripool 自動建單',
+                    '切換至「建單前檢查」分頁，確認包車地址',
+                    '若 BV 欄（山區加成）出現紅底，請手動選擇「是」',
+                    '點選上方「Email」→「批次寄信並移至總表」',
+                    '信件寄出後，務必刪除 BP 欄與 BT 欄的內容'
+                ],
+                col2Title: '同步執行工作',
+                col2Steps: [
+                    '在寄信的同時，查看 tc-group 的晚班交接事項，以及檢查 LINE 帳號是否有司機緊急問題。'
+                ],
+                alert: {
+                    title: '重要前提',
+                    content: 'Tripool 自動建單系統只能使用 booking 帳號進行操作！使用前務必確認當前瀏覽器登入的 Google 帳號為 booking 帳號，避免權限錯誤。'
+                }
+            },
+            {
+                id: 'step4',
+                title: '04 第四動 — 確認司機報班',
+                subtitle: '核對司機報班狀況、填寫協作文件',
+                type: 'step',
+                steps: [
+                    '查看 LINE 主帳號與 LINE 官方帳號，確認是否有司機回報異況',
+                    '開啟 Tripool for Tomorrow ',
+                    '切換至「旅步 tripool 駕駛報班結果」分頁',
+                    '仔細核對每位司機的報班結果',
+                    '將確認後的報班結果填寫至派車協作文件「(✪派車™㍿ ✪)」'
+                ],
+                alert: {
+                    title: '關鍵檢查點',
+                    content: '司機報班是演算前極為關鍵的資源確認步驟。若有公司車或核心司機未報班或請假，立即記錄並詢問，否則將直接影響後續 Dispatch 演算的車輛配套。'
+                }
+            },
+            {
+                id: 'step5',
+                title: '05 第五動 — 派今日急單',
+                subtitle: '查詢今日急單來源並透過 APP 派單',
+                type: 'two-column',
+                col1Title: '急單來源判斷',
+                col1Steps: [
+                    '<span class="text-brandAlert font-bold">🔴 紅底訂單</span>：來自總表中的紅底列，代表需要立即處理的今天單',
+                    '<span class="text-brandYellow font-bold">🟠 淡橘底訂單</span>：後台 Today 頁面的淡橘底訂單，也需要優先派單',
+                    '<strong>派單策略：</strong>依據當下狀況評估，可選擇直接丟 APP 系統進行派單，或是主動詢問熟悉且可配合的司機進行指派。'
+                ],
+                col2Title: '丟 APP 派單步驟',
+                col2Steps: [
+                    '開啟派車小幫手，切換至「APP待派車趟」分頁',
+                    '從 A2 開始，以純值貼上訂單編號',
+                    '切換至「APP匯入CSV」分頁，點選「檔案」→「下載」',
+                    '前往 tripool 派趟系統，點選左側「建立」',
+                    '上傳 CSV 檔案，調整派單參數選項',
+                    '點選「全部開始」啟動派單'
+                ],
+                alert: null
+            },
+            {
+                id: 'step6',
+                title: '06 第六動 — 派車前確認清單',
+                subtitle: '依序完成派車前確認與其他作業',
+                type: 'two-column',
+                col1Title: '核心確認',
+                col1Steps: [
+                    '<strong>重複訂單確認：</strong>若分頁出現紅底，先自行至總表「Tripool TAXI」比對。若不確定，Slack 請客服協助',
+                    '<strong>明天確認資訊：</strong>查看注意事項（網網紅贊助等），複製訂單編號至後台調整可等待客戶時間',
+                    '<strong>地址標準化：</strong>檢查「tripool TAXI」T、V 欄有無淺藍底，將地址修改標準化並將後天至03:00的編號改為今天',
+                    '<strong>Typeform 退單申請：</strong>從最下面往上處理，依 H 欄與 J 欄進行相應的取消操作'
+                ],
+                col2Title: '其他派車前作業',
+                col2Steps: [
+                    '<strong>建平台單：</strong>檢查可樂、EZ 訂單，確認 AY 欄訂單狀態為「訂單成立」',
+                    '<strong>信件修改：</strong>快速檢視 booking email，完成所有明天訂單的修改需求',
+                    '<strong>上傳後台搬至總表：</strong>登入 booking 帳號，下載「2025 Tour records」排除已上傳之批次上傳格式的 CSV，至後台批次建單上傳'
+                ],
+                alert: {
+                    title: '工作閉環',
+                    content: '每當完成確認與調整後，務必回到「派車前確認」分頁勾選「已完成」。未勾選代表該項作業尚未結束，不得進行後續演算。'
+                }
+            },
+            {
+                id: 'step7',
+                title: '07 第七動 — 執行 Dispatch V3 演算',
+                subtitle: '所有確認完成後，進行最終排序搬單與執行演算',
+                type: 'two-column',
+                col1Title: '最終排序與搬單',
+                col1Steps: [
+                    '回到「tripool TAXI」，確認所有資料無誤後執行排序',
+                    '點選上方「派車」→「將明天單貼至派車工具」',
+                    '<strong>警告：</strong>在完全貼好前，總表與明天派車工具絕對不能進行任何編輯！'
+                ],
+                col2Title: '執行 Dispatch V3',
+                col2Steps: [
+                    '前往後台左側「Dispatch」，選擇正確的明天日期',
+                    '選擇「提醒使用者」',
+                    '調整關鍵參數：收單拉長時間（小時）將 0 改為 3',
+                    '交通時間延長倍數視情況調整（如連假或特殊情況）',
+                    '確認所有參數設定無誤後，點選「執行 Dispatch V3」啟動演算'
+                ],
+                alert: {
+                    title: '關鍵操作禁忌',
+                    content: '總表搬單至明天派車工具期間，任何編輯動作都可能導致資料錯位。收單拉長時間務必從 0 改為 3，總表後天至03:00的訂單請記得修改編號為明天，此為常態設定，漏改會沒派到。'
+                }
+            },
+            {
+                id: 'precautions',
+                title: '重點提醒與注意事項',
+                subtitle: '三大核心守則 — 新進人員必讀',
+                type: 'precautions',
+                rules: [
+                    {
+                        title: '1. 隨時留意即時通知',
+                        desc: '在執行每一個步驟的過程中，都必須持續關注 Slack 通知 與 LINE 通知。若有緊急狀況（如司機回報異常、客服訊息）需立即處理，不可等到步驟結束後才回覆。'
+                    },
+                    {
+                        title: '2. 嚴格注意帳號切換',
+                        desc: '部分系統（如 Tripool 自動建單、平台單）只能使用 booking 帳號操作。使用前務必確認當前瀏覽器登入的 Google 帳號正確，避免權限錯誤。'
+                    },
+                    {
+                        title: '3. 有底色的警示優先處理',
+                        desc: '無論是後台批次更新後的紅色底提示，或是總表中的紅底訂單，都代表異常或急單，必須優先排除後才能繼續執行下一個步驟。'
+                    }
+                ],
+                closing: {
+                    title: '給新進人員的話',
+                    text: '早班演算是派車系統的核心環節。每一個步驟都環環相扣，任何一個細節的疏漏都可能影響後續步驟進行。記住三大守則、細心檢查、及時溝通，就能夠順利完成。不要害怕提問，不要忽視任何警示、訊息及通知。歡迎加入團隊！💪'
+                }
+            }
+        ];
+
+        function App() {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [passwordInput, setPasswordInput] = useState('');
+            const [passwordError, setPasswordError] = useState('');
+            
+            const [currentSlide, setCurrentSlide] = useState(0);
+            const [checklist, setChecklist] = useState({});
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+            const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
+            const [viewMode, setViewMode] = useState('presentation'); 
+
+            // 動態計算簡報資料中所有的核取方塊總數量
+            const totalCheckboxes = useMemo(() => {
+                let count = 0;
+                slidesData.forEach(slide => {
+                    if (slide.type === 'step' && slide.steps) {
+                        count += slide.steps.length;
+                    } else if (slide.type === 'two-column') {
+                        if (slide.col1Steps) count += slide.col1Steps.length;
+                        if (slide.col2Steps) count += slide.col2Steps.length;
+                    }
+                });
+                return count;
+            }, []);
+
+            // 鍵盤翻頁事件監聽器：已徹底拿掉 Enter (e.key === 'Enter') 的所有翻頁邏輯
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (viewMode !== 'presentation') return;
+                    if (e.key === 'ArrowRight' || e.key === ' ') {
+                        e.preventDefault();
+                        nextSlide();
+                    } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+                        e.preventDefault();
+                        prevSlide();
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [currentSlide, viewMode]);
+
+            const nextSlide = () => {
+                if (currentSlide < slidesData.length - 1) {
+                    setCurrentSlide(currentSlide + 1);
+                }
+            };
+
+            const prevSlide = () => {
+                if (currentSlide > 0) {
+                    setCurrentSlide(currentSlide - 1);
+                }
+            };
+
+            const toggleCheck = (slideId, index) => {
+                setChecklist(prev => ({
+                    ...prev,
+                    [`${slideId}-${index}`]: !prev[`${slideId}-${index}`]
+                }));
+            };
+
+            const clearAllCheckmarks = () => {
+                if (window.confirm('確定要取消所有已勾選的流程項目嗎？')) {
+                    setChecklist({});
+                }
+            };
+
+            const handlePasswordVerify = async (e) => {
+                if (e) e.stopPropagation(); // 增加防護，防止點選或按鍵冒泡
+                const inputHash = await sha256(passwordInput.trim());
+                if (inputHash === CORRECT_HASH) {
+                    setIsAuthenticated(true);
+                } else {
+                    setPasswordError("密碼錯誤，請重新輸入！");
+                    setPasswordInput("");
+                }
+            };
+
+            const handlePasswordKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    e.stopPropagation(); // 多重保險：阻斷 Enter 訊號向上傳遞給簡報系統
+                    handlePasswordVerify(e);
+                }
+            };
+
+            if (!isAuthenticated) {
+                return (
+                    <div class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#2a2a2a] p-4">
+                        <div class="w-full max-w-md bg-[#404040] border border-[#4f4f4f] rounded-2xl p-6 shadow-2xl text-center">
+                            <h2 class="text-xl font-bold text-brandYellow mb-2">早班演算前 SOP</h2>
+                            <p class="text-xs text-brandText/70 mb-6">本頁面受密碼保護，請輸入內部通行碼</p>
+                            
+                            <input 
+                                type="password" 
+                                placeholder="請輸入密碼" 
+                                value={passwordInput}
+                                onChange={(e) => setPasswordInput(e.target.value)}
+                                onKeyDown={handlePasswordKeyDown}
+                                class="w-full px-4 py-3 rounded-xl bg-[#2a2a2a] border border-[#4f4f4f] text-white text-center focus:outline-none focus:border-brandTeal text-sm mb-4"
+                                autoFocus
+                            />
+                            
+                            <button 
+                                onClick={handlePasswordVerify}
+                                class="w-full py-3 bg-brandTeal hover:bg-brandTeal/90 text-brandBg font-bold rounded-xl transition-all text-sm shadow-lg shadow-brandTeal/10"
+                            >
+                                驗證並進入系統
+                            </button>
+                            <p class="text-brandAlert text-xs mt-3 font-medium h-4">{passwordError}</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentData = slidesData[currentSlide];
+            const checkedCount = Object.values(checklist).filter(Boolean).length;
+
+            return (
+                <div class="flex h-full w-full bg-[#2a2a2a] text-brandText overflow-hidden select-none">
+                    
+                    {/* 左側導覽列 (桌面版) */}
+                    <div class={`hidden lg:flex h-full bg-[#333333] border-[#4f4f4f] flex-col flex-shrink-0 transition-all duration-300 ${isDesktopSidebarOpen ? 'w-80 border-r' : 'w-0 overflow-hidden border-r-0'}`}>
+                        <div class="p-4 border-b border-[#4f4f4f] flex items-center justify-between whitespace-nowrap min-w-[20rem]">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-brandTeal animate-pulse"></span>
+                                <h1 class="font-bold text-sm tracking-wide text-brandYellow">早班演算前 SOP</h1>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs bg-[#404040] px-2 py-1 rounded text-brandTeal font-mono">V3</span>
+                                <button onClick={() => setIsDesktopSidebarOpen(false)} class="p-1 hover:bg-[#404040] rounded text-brandText transition-colors" title="收合側欄">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-2 space-y-1 min-w-[20rem]">
+                            {slidesData.map((slide, idx) => (
+                                <button
+                                    key={slide.id}
+                                    onClick={() => {
+                                        setCurrentSlide(idx);
+                                        if (viewMode === 'handbook') {
+                                            document.getElementById(slide.id)?.scrollIntoView({ behavior: 'smooth' });
+                                        }
+                                    }}
+                                    class={`w-full text-left p-2.5 rounded-lg text-xs transition-all flex items-start gap-3 ${
+                                        currentSlide === idx 
+                                            ? 'bg-[#404040] border-l-4 border-brandTeal text-white' 
+                                            : 'hover:bg-[#404040]/50 text-brandText'
+                                    }`}
+                                >
+                                    <span class={`font-mono text-[10px] px-1.5 py-0.5 rounded ${currentSlide === idx ? 'bg-brandTeal text-[#404040] font-bold' : 'bg-[#404040]'}`}>
+                                        {String(idx + 1).padStart(2, '0')}
+                                    </span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold truncate">{slide.title}</p>
+                                        {slide.subtitle && <p class="text-[10px] opacity-60 truncate mt-0.5">{slide.subtitle}</p>}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Checklist 進度條 */}
+                        <div class="p-4 border-t border-[#4f4f4f] bg-[#3a3a3a] min-w-[20rem] space-y-3">
+                            <div class="flex justify-between items-center mb-1.5 text-[11px]">
+                                <span>作業步驟確認進度</span>
+                                <span class="font-mono text-brandTeal font-bold">
+                                    {checkedCount} / {totalCheckboxes} 項確認
+                                </span>
+                            </div>
+                            <div class="w-full bg-[#404040] rounded-full h-1.5 overflow-hidden">
+                                <div 
+                                    class="bg-brandTeal h-1.5 transition-all duration-500 rounded-full" 
+                                    style={{ width: `${Math.min(100, (checkedCount / totalCheckboxes) * 100)}%` }}
+                                ></div>
+                            </div>
+                            
+                            <button 
+                                onClick={clearAllCheckmarks}
+                                class="w-full py-2 bg-[#444] hover:bg-brandAlertBg border border-[#555] hover:border-brandAlert/40 text-brandText hover:text-brandAlert text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                取消全部項目勾選
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 行動端抽屜式選單 */}
+                    <div class={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+                        <div class="absolute inset-0 bg-black/60" onClick={() => setIsSidebarOpen(false)}></div>
+                        <div class={`absolute top-0 left-0 h-full w-72 bg-[#333333] border-r border-[#4f4f4f] flex flex-col transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                            <div class="p-4 border-b border-[#4f4f4f] flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-brandTeal animate-pulse"></span>
+                                    <h1 class="font-bold text-sm tracking-wide text-brandYellow">早班演算 SOP</h1>
+                                </div>
+                                <button onClick={() => setIsSidebarOpen(false)} class="text-brandText hover:text-white p-1">
+                                    ✕
+                                </button>
+                            </div>
+                            
+                            <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                                {slidesData.map((slide, idx) => (
+                                    <button
+                                        key={slide.id}
+                                        onClick={() => {
+                                            setCurrentSlide(idx);
+                                            setIsSidebarOpen(false);
+                                            if (viewMode === 'handbook') {
+                                                setTimeout(() => {
+                                                    document.getElementById(slide.id)?.scrollIntoView({ behavior: 'smooth' });
+                                                }, 100);
+                                            }
+                                        }}
+                                        class={`w-full text-left p-3 rounded-lg text-xs transition-all flex items-start gap-3 ${
+                                            currentSlide === idx 
+                                                ? 'bg-[#404040] border-l-4 border-brandTeal text-white' 
+                                                : 'hover:bg-[#404040]/50 text-brandText'
+                                        }`}
+                                    >
+                                        <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#404040]">
+                                            {String(idx + 1).padStart(2, '0')}
+                                        </span>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-semibold truncate">{slide.title}</p>
+                                            {slide.subtitle && <p class="text-[10px] opacity-60 truncate mt-0.5">{slide.subtitle}</p>}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <div class="p-3 border-t border-[#4f4f4f] bg-[#3a3a3a]">
+                                <button 
+                                    onClick={() => { clearAllCheckmarks(); setIsSidebarOpen(false); }}
+                                    class="w-full py-2.5 bg-[#444] text-brandText text-xs font-bold rounded-xl flex items-center justify-center gap-1"
+                                >
+                                    取消全部項目勾選
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 右側主畫面區 */}
+                    <div class="flex-1 flex flex-col h-full bg-[#2a2a2a] relative overflow-hidden">
+                        
+                        {/* 頂部控制欄 */}
+                        <div class="h-14 bg-[#333333] border-b border-[#4f4f4f] px-4 lg:px-6 flex items-center justify-between z-10 flex-shrink-0">
+                            <div class="flex items-center gap-3">
+                                <button 
+                                    onClick={() => setIsSidebarOpen(true)}
+                                    class="lg:hidden p-2 hover:bg-[#404040] rounded-lg transition-colors text-brandText"
+                                    title="開啟目錄"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                </button>
+                                {!isDesktopSidebarOpen && (
+                                    <button 
+                                        onClick={() => setIsDesktopSidebarOpen(true)}
+                                        class="hidden lg:block p-2 hover:bg-[#404040] rounded-lg transition-colors text-brandText"
+                                        title="展開目錄"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                )}
+                                <div class="hidden sm:block text-xs text-brandText/60">
+                                    目前階段：<span class="text-brandTeal font-semibold">{currentData.title}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-4">
+                                <div class="bg-[#404040] p-1 rounded-lg flex gap-1 text-xs">
+                                    <button 
+                                        onClick={() => setViewMode('presentation')}
+                                        class={`px-3 py-1.5 rounded transition-all flex items-center gap-1.5 ${viewMode === 'presentation' ? 'bg-brandTeal text-brandBg font-semibold' : 'text-brandText hover:text-white'}`}
+                                    >
+                                        投影片模式
+                                    </button>
+                                    <button 
+                                        onClick={() => setViewMode('handbook')}
+                                        class={`px-3 py-1.5 rounded transition-all flex items-center gap-1.5 ${viewMode === 'handbook' ? 'bg-brandTeal text-brandBg font-semibold' : 'text-brandText hover:text-white'}`}
+                                    >
+                                        手冊模式
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 主要簡報展示空間 */}
+                        {viewMode === 'presentation' ? (
+                            <div class="flex-1 flex flex-col justify-between p-3 sm:p-4 lg:p-5 relative overflow-hidden presentation-container">
+                                
+                                <div class="w-full max-w-5xl mx-auto bg-[#404040] rounded-2xl shadow-2xl border border-[#4f4f4f] p-3 sm:p-5 lg:p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-300 presentation-card fluid-scale">
+                                    
+                                    {currentData.type !== 'cover' && currentData.type !== 'divider' && (
+                                        <div class="flex items-center justify-between border-b border-[#555555] pb-2 mb-2 lg:mb-4 flex-shrink-0 fluid-space">
+                                            <div class="min-w-0 flex-1 pr-4">
+                                                <span class="text-[9px] uppercase tracking-widest font-bold text-brandTeal font-mono block">
+                                                    SOP SYSTEM STEP.{String(currentSlide - 1).padStart(2, '0')}
+                                                </span>
+                                                <h2 class="text-base sm:text-lg lg:text-xl font-bold text-brandYellow mt-0.5 leading-tight truncate fluid-title">{currentData.title}</h2>
+                                                {currentData.subtitle && <p class="text-[10px] text-brandText/70 truncate fluid-subtitle">{currentData.subtitle}</p>}
+                                            </div>
+                                            <span class="text-[9px] sm:text-xs bg-[#333333] px-2 py-0.5 rounded-full text-brandText/80 font-mono whitespace-nowrap">
+                                                {currentSlide + 1} / {slidesData.length}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <div class="flex-1 flex flex-col justify-center overflow-hidden">
+                                        
+                                        {currentData.type === 'cover' && (
+                                            <div class="text-center py-2 lg:py-4 space-y-3 lg:space-y-4">
+                                                <div class="inline-block px-3 py-1 bg-brandTeal/10 border border-brandTeal/30 rounded-full text-brandTeal text-[10px] font-bold tracking-wider uppercase">
+                                                    Tripool Dispatch Standard Operating Procedure
+                                                </div>
+                                                <h1 class="text-xl sm:text-2xl lg:text-4xl font-black tracking-tight text-brandYellow leading-tight fluid-title">
+                                                    {currentData.title}
+                                                </h1>
+                                                <p class="text-xl text-brandText/95 font-bold tracking-wide mb-8 fluid-subtitle">
+                                                    {currentData.subtitle}
+                                                </p>
+                                                <div class="w-16 h-1 bg-brandTeal mx-auto rounded-full fluid-space"></div>
+                                                <p class="text-[11px] sm:text-xs text-brandText/70 max-w-xl mx-auto leading-relaxed">
+                                                    {currentData.content}
+                                                </p>
+                                                <div class="pt-2">
+                                                    <button 
+                                                        onClick={nextSlide}
+                                                        class="px-4 py-2 bg-brandTeal hover:bg-brandTeal/90 text-brandBg font-bold rounded-lg transition-all transform hover:scale-105 inline-flex items-center gap-2 text-xs shadow-lg shadow-brandTeal/20"
+                                                    >
+                                                        開始 
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {currentData.type === 'divider' && (
+                                            <div class="text-center py-4 lg:py-6 space-y-3 lg:space-y-4">
+                                                <div class="w-12 h-12 bg-brandTeal/10 rounded-full flex items-center justify-center mx-auto border border-brandTeal/30 text-brandTeal">
+                                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                                    </svg>
+                                                </div>
+                                                <h1 class="text-xl sm:text-2xl lg:text-3xl font-extrabold text-brandYellow tracking-wide fluid-title">{currentData.title}</h1>
+                                                {currentData.subtitle && <p class="text-[9px] text-brandText/60 uppercase tracking-widest">{currentData.subtitle}</p>}
+                                                <div class="w-12 h-0.5 bg-brandTeal/40 mx-auto fluid-space"></div>
+                                                <div class="pt-1">
+                                                    <button 
+                                                        onClick={nextSlide}
+                                                        class="px-4 py-1.5 bg-transparent border border-brandTeal text-brandTeal hover:bg-brandTeal hover:text-brandBg font-bold rounded-lg transition-all inline-flex items-center gap-2 text-xs"
+                                                    >
+                                                        進入詳細步驟
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {currentData.type === 'overview' && (
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 py-1 overflow-hidden fluid-gap">
+                                                {currentData.steps.map((s, idx) => (
+                                                    <div 
+                                                        key={idx}
+                                                        onClick={() => setCurrentSlide(slidesData.findIndex(sd => sd.id.startsWith(`step${idx+1}`)))}
+                                                        class="p-2 rounded-xl bg-[#333333] border border-[#4f4f4f] hover:border-brandTeal transition-all cursor-pointer flex items-start gap-2.5 group fluid-p"
+                                                    >
+                                                        <span class="font-mono text-sm lg:text-base font-bold text-brandTeal group-hover:text-brandYellow transition-colors flex-shrink-0 mt-0.5">
+                                                            {s.num}
+                                                        </span>
+                                                        <div class="flex-1 min-w-0">
+                                                            <div class="flex items-center justify-between">
+                                                                <span class="text-[8px] sm:text-[9px] text-brandYellow font-semibold bg-[#404040] px-1.5 py-0.5 rounded">
+                                                                    {s.action}
+                                                                </span>
+                                                            </div>
+                                                            <h4 class="text-[11px] sm:text-xs font-bold text-white mt-0.5 group-hover:text-brandTeal transition-colors truncate">{s.title}</h4>
+                                                            <p class="text-[9px] sm:text-[10px] text-brandText/60 mt-0.5 truncate">{s.desc}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {currentData.type === 'step' && (
+                                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 py-1 overflow-hidden fluid-gap">
+                                                <div class="lg:col-span-7 space-y-1.5 lg:space-y-2 overflow-hidden flex flex-col justify-center">
+                                                    {currentData.steps.map((step, idx) => (
+                                                        <div 
+                                                            key={idx}
+                                                            onClick={() => toggleCheck(currentData.id, idx)}
+                                                            class="flex items-start gap-2 p-2 rounded-lg bg-[#333333]/50 hover:bg-[#333333] border border-transparent hover:border-[#4f4f4f] transition-all cursor-pointer fluid-p"
+                                                        >
+                                                            <div class="flex items-center h-4 mt-0.5">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={!!checklist[`${currentData.id}-${idx}`]}
+                                                                    onChange={() => {}}
+                                                                    class="w-3.5 h-3.5 rounded border-[#4f4f4f] text-brandTeal focus:ring-brandTeal bg-[#2a2a2a] cursor-pointer"
+                                                                />
+                                                            </div>
+                                                            <div class="flex-1 min-w-0">
+                                                                <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#404040] border border-[#4f4f4f] text-[9px] font-mono text-brandTeal font-bold mr-1.5 text-center flex-shrink-0">
+                                                                    {idx + 1}
+                                                                </span>
+                                                                <span 
+                                                                    class={`text-[11px] sm:text-xs leading-relaxed ${checklist[`${currentData.id}-${idx}`] ? 'line-through text-brandText/40' : 'text-brandText'}`}
+                                                                    dangerouslySetInnerHTML={{ __html: step }}
+                                                                ></span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                
+                                                {currentData.alert && (
+                                                    <div class="lg:col-span-5 flex flex-col justify-center">
+                                                        <div class="p-3 sm:p-4 rounded-xl bg-brandAlertBg border border-brandAlert/30 space-y-1.5 shadow-lg relative overflow-hidden fluid-p">
+                                                            <div class="absolute -right-6 -bottom-6 text-brandAlert opacity-5 pointer-events-none">
+                                                                <svg class="w-20 h-20 sm:w-24 sm:h-24" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                            </div>
+                                                            <div class="flex items-center gap-1.5 text-brandAlert font-black text-xs tracking-wider uppercase">
+                                                                <svg class="w-3.5 h-3.5 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                {currentData.alert.title}
+                                                            </div>
+                                                            <p class="text-[10px] sm:text-[11px] leading-relaxed text-[#ffd4dc] font-medium">
+                                                                {currentData.alert.content}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {currentData.type === 'two-column' && (
+                                            <div class="space-y-2 lg:space-y-3 overflow-hidden flex flex-col justify-center">
+                                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 overflow-hidden fluid-gap">
+                                                    
+                                                    <div class="bg-[#333333]/40 p-3 rounded-xl border border-[#4f4f4f]/60 space-y-2 fluid-p flex flex-col justify-center">
+                                                        <h3 class="text-xs font-extrabold text-brandTeal flex items-center gap-1.5 border-b border-[#555] pb-1">
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-brandTeal"></span>
+                                                            {currentData.col1Title}
+                                                        </h3>
+                                                        <ul class="space-y-1">
+                                                            {currentData.col1Steps.map((step, idx) => (
+                                                                <li 
+                                                                    key={idx}
+                                                                    onClick={() => toggleCheck(currentData.id, `col1-${idx}`)}
+                                                                    class="flex items-start gap-1.5 text-[11px] sm:text-xs cursor-pointer hover:bg-[#333333]/30 p-1 rounded"
+                                                                >
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={!!checklist[`${currentData.id}-col1-${idx}`]}
+                                                                        onChange={() => {}}
+                                                                        class="w-3.5 h-3.5 mt-0.5 rounded border-[#4f4f4f] text-brandTeal focus:ring-brandTeal bg-[#2a2a2a] cursor-pointer"
+                                                                    />
+                                                                    <span 
+                                                                        class={`leading-relaxed flex-1 ${checklist[`${currentData.id}-col1-${idx}`] ? 'line-through text-brandText/40' : 'text-brandText'}`}
+                                                                        dangerouslySetInnerHTML={{ __html: step }}
+                                                                    ></span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+
+                                                    <div class="bg-[#333333]/40 p-3 rounded-xl border border-[#4f4f4f]/60 space-y-2 fluid-p flex flex-col justify-center">
+                                                        <h3 class="text-xs font-extrabold text-brandYellow flex items-center gap-1.5 border-b border-[#555] pb-1">
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-brandYellow"></span>
+                                                            {currentData.col2Title}
+                                                        </h3>
+                                                        <ul class="space-y-1">
+                                                            {currentData.col2Steps.map((step, idx) => (
+                                                                <li 
+                                                                    key={idx}
+                                                                    onClick={() => toggleCheck(currentData.id, `col2-${idx}`)}
+                                                                    class="flex items-start gap-1.5 text-[11px] sm:text-xs cursor-pointer hover:bg-[#333333]/30 p-1 rounded"
+                                                                >
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={!!checklist[`${currentData.id}-col2-${idx}`]}
+                                                                        onChange={() => {}}
+                                                                        class="w-3.5 h-3.5 mt-0.5 rounded border-[#4f4f4f] text-brandTeal focus:ring-brandTeal bg-[#2a2a2a] cursor-pointer"
+                                                                    />
+                                                                    <span 
+                                                                        class={`leading-relaxed flex-1 ${checklist[`${currentData.id}-col2-${idx}`] ? 'line-through text-brandText/40' : 'text-brandText'}`}
+                                                                        dangerouslySetInnerHTML={{ __html: step }}
+                                                                    ></span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+
+                                                {currentData.alert && (
+                                                    <div class="p-2 sm:p-2.5 rounded-xl bg-brandAlertBg border border-brandAlert/30 flex items-start gap-2 fluid-p">
+                                                        <svg class="w-4 h-4 text-brandAlert mt-0.5 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                        <div class="min-w-0 flex-1">
+                                                            <h4 class="text-[9px] sm:text-[10px] font-black text-brandAlert uppercase tracking-wider">{currentData.alert.title}</h4>
+                                                            <p class="text-[9px] sm:text-[10px] text-[#ffd4dc] mt-0.5 leading-relaxed font-medium">{currentData.alert.content}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {currentData.type === 'precautions' && (
+                                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 py-1 overflow-hidden fluid-gap">
+                                                <div class="lg:col-span-7 space-y-1.5 lg:space-y-2 flex flex-col justify-center">
+                                                    {currentData.rules.map((rule, idx) => (
+                                                        <div key={idx} class="p-2.5 rounded-xl bg-[#333333]/50 border-l-4 border-brandTeal space-y-0.5 fluid-p">
+                                                            <h3 class="text-xs font-black text-brandYellow">{rule.title}</h3>
+                                                            <p class="text-[10px] sm:text-[11px] leading-relaxed text-brandText/90">{rule.desc}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div class="lg:col-span-5 flex flex-col justify-center">
+                                                    <div class="p-3 lg:p-4 rounded-2xl bg-brandTeal/5 border border-brandTeal/20 space-y-1 relative overflow-hidden h-full flex flex-col justify-center fluid-p">
+                                                        <h3 class="text-xs font-black text-brandTeal flex items-center gap-1.5">
+                                                            <span class="flex h-2 w-2 relative">
+                                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brandTeal opacity-75"></span>
+                                                                <span class="relative inline-flex rounded-full h-2 w-2 bg-brandTeal"></span>
+                                                            </span>
+                                                            {currentData.closing.title}
+                                                        </h3>
+                                                        <p class="text-[10px] sm:text-[11px] leading-relaxed text-brandText/90 whitespace-pre-line">
+                                                            {currentData.closing.text}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div class="flex items-center justify-center relative border-t border-[#555555] pt-2 mt-2 lg:mt-4 flex-shrink-0 fluid-space w-full">
+                                        <div class="absolute left-0 hidden md:block text-[9px] text-brandText/50 font-medium">
+                                            控制說明：可按鍵盤 <kbd class="px-1 py-0.5 bg-[#333333] border border-[#4f4f4f] rounded text-[8px] text-brandTeal font-mono">←</kbd> <kbd class="px-1 py-0.5 bg-[#333333] border border-[#4f4f4f] rounded text-[8px] text-brandTeal font-mono">→</kbd> 或 <kbd class="px-1 py-0.5 bg-[#333333] border border-[#4f4f4f] rounded text-[8px] text-brandTeal font-mono">空白鍵</kbd>
+                                        </div>
+                                        <div class="flex gap-2 justify-center items-center">
+                                            <button 
+                                                onClick={() => setCurrentSlide(2)}
+                                                class="bg-[#333333] border border-[#4f4f4f] hover:border-brandTeal hover:text-white text-brandText px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1"
+                                                title="回到第3張：工作流程總覽"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                                </svg>
+                                                工作流程總覽
+                                            </button>
+                                            <button 
+                                                onClick={prevSlide}
+                                                disabled={currentSlide === 0}
+                                                class={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                                                    currentSlide === 0 
+                                                        ? 'opacity-25 cursor-not-allowed bg-transparent text-brandText border border-[#4f4f4f]' 
+                                                        : 'bg-[#333333] border border-[#4f4f4f] hover:border-brandTeal hover:text-white text-brandText'
+                                                }`}
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                                                上一頁
+                                            </button>
+                                            <button 
+                                                onClick={nextSlide}
+                                                disabled={currentSlide === slidesData.length - 1}
+                                                class={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                                                    currentSlide === slidesData.length - 1 
+                                                        ? 'opacity-25 cursor-not-allowed bg-transparent text-brandText border border-[#4f4f4f]' 
+                                                        : 'bg-brandTeal text-brandBg hover:bg-brandTeal/90 font-bold'
+                                                }`}
+                                            >
+                                                下一頁
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        ) : (
+                            /* 長文手冊模式 */
+                            <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-12 space-y-8 sm:space-y-12">
+                                <div class="max-w-4xl mx-auto space-y-8 sm:space-y-12">
+                                    {slidesData.map((slide, idx) => (
+                                        <div 
+                                            key={slide.id} 
+                                            id={slide.id}
+                                            class={`p-5 sm:p-8 bg-[#404040] rounded-2xl border ${currentSlide === idx ? 'border-brandTeal shadow-xl shadow-black/10' : 'border-[#4f4f4f]'} transition-all`}
+                                        >
+                                            <div class="flex items-center gap-3 border-b border-[#4f4f4f] pb-3 mb-5">
+                                                <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-[#333333] text-brandTeal font-bold">
+                                                    SECTION {String(idx + 1).padStart(2, '0')}
+                                                </span>
+                                                <h2 class="text-base sm:text-lg font-bold text-brandYellow">{slide.title}</h2>
+                                            </div>
+
+                                            {slide.type === 'cover' && (
+                                                <div class="space-y-3">
+                                                    <p class="text-sm font-bold text-white">{slide.subtitle}</p>
+                                                    <p class="text-xs sm:text-sm leading-relaxed text-brandText/80">{slide.content}</p>
+                                                </div>
+                                            )}
+
+                                            {slide.type === 'divider' && (
+                                                <div class="py-2">
+                                                    <p class="text-xs sm:text-sm text-brandText/60 uppercase tracking-widest font-mono">{slide.subtitle}</p>
+                                                </div>
+                                            )}
+
+                                            {slide.type === 'overview' && (
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    {slide.steps.map((s, sIdx) => (
+                                                        <div key={sIdx} class="p-3 rounded-lg bg-[#333333]/40 border border-[#4f4f4f]/50">
+                                                            <span class="text-[10px] text-brandTeal font-mono font-bold block">{s.num} {s.action}</span>
+                                                            <h4 class="text-xs sm:text-sm font-bold text-white mt-0.5">{s.title}</h4>
+                                                            <p class="text-[11px] text-brandText/60 mt-0.5">{s.desc}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {slide.type === 'step' && (
+                                                <div class="space-y-5">
+                                                    <ul class="space-y-2">
+                                                        {slide.steps.map((step, sIdx) => (
+                                                            <li key={sIdx} class="flex items-start gap-3 text-xs sm:text-sm">
+                                                                <span class="inline-flex h-5 w-5 rounded-full bg-[#333333] border border-[#4f4f4f] text-[9px] font-mono text-brandTeal font-bold items-center justify-center mt-0.5 flex-shrink-0">
+                                                                    {sIdx + 1}
+                                                                </span>
+                                                                <span class="flex-1 leading-relaxed text-brandText" dangerouslySetInnerHTML={{ __html: step }}></span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    {slide.alert && (
+                                                        <div class="p-3.5 rounded-xl bg-brandAlertBg border border-brandAlert/20 text-xs">
+                                                            <span class="font-bold text-brandAlert block mb-1">⚠️ {slide.alert.title}</span>
+                                                            <p class="text-[#ffd4dc] leading-relaxed font-medium">{slide.alert.content}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {slide.type === 'two-column' && (
+                                                <div class="space-y-5">
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                        <div class="space-y-3 bg-[#333333]/30 p-3.5 rounded-xl">
+                                                            <h4 class="text-xs sm:text-sm font-bold text-brandTeal border-b border-[#4f4f4f] pb-1 uppercase tracking-wider">{slide.col1Title}</h4>
+                                                            <ul class="space-y-1.5">
+                                                                {slide.col1Steps.map((step, sIdx) => (
+                                                                    <li key={sIdx} class="text-xs leading-relaxed text-brandText list-disc list-inside" dangerouslySetInnerHTML={{ __html: step }}></li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                        <div class="space-y-3 bg-[#333333]/30 p-3.5 rounded-xl">
+                                                            <h4 class="text-xs sm:text-sm font-bold text-brandYellow border-b border-[#4f4f4f] pb-1 uppercase tracking-wider">{slide.col2Title}</h4>
+                                                            <ul class="space-y-1.5">
+                                                                {slide.col2Steps.map((step, sIdx) => (
+                                                                    <li key={sIdx} class="text-xs leading-relaxed text-brandText list-disc list-inside" dangerouslySetInnerHTML={{ __html: step }}></li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                    {slide.alert && (
+                                                        <div class="p-3.5 rounded-xl bg-brandAlertBg border border-brandAlert/20 text-xs">
+                                                            <span class="font-bold text-brandAlert block mb-1">⚠️ {slide.alert.title}</span>
+                                                            <p class="text-[#ffd4dc] leading-relaxed font-medium">{slide.alert.content}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {slide.type === 'precautions' && (
+                                                <div class="space-y-5">
+                                                    <div class="space-y-3">
+                                                        {slide.rules.map((rule, rIdx) => (
+                                                            <div key={rIdx} class="p-3.5 rounded-xl bg-[#333333]/50 border-l-4 border-brandTeal">
+                                                                <h4 class="text-xs sm:text-sm font-bold text-brandYellow mb-0.5">{rule.title}</h4>
+                                                                <p class="text-[11px] sm:text-xs leading-relaxed text-brandText/80 whitespace-pre-line">{rule.desc}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div class="p-4 rounded-xl bg-brandTeal/5 border border-brandTeal/20">
+                                                        <h4 class="text-xs sm:text-sm font-bold text-brandTeal mb-1">{slide.closing.title}</h4>
+                                                        <p class="text-[11px] sm:text-[12px] leading-relaxed text-brandText/80 whitespace-pre-line">{slide.closing.text}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
